@@ -11,3 +11,6 @@ __pycache__/
 # Resultados de ejecución
 *.log
 consolidado.xlsx
+
+# Datos de prueba locales (no se suben al repo)
+datos_prueba/fotos/
