@@ -1,0 +1,13 @@
+# Entorno virtual
+venv/
+
+# Claves y datos sensibles
+.env
+
+# Archivos de Python generados
+__pycache__/
+*.pyc
+
+# Resultados de ejecución
+*.log
+consolidado.xlsx
