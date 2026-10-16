@@ -8,6 +8,11 @@ Colección de scripts para automatizar tareas repetitivas:
 
 > 🚧 Proyecto en desarrollo.
 
+## Requisitos
+
+- Python 3.14 (versión usada en este proyecto, compatible con 3.10+).
+- Usá `python3` en Linux/Mac y `python` en Windows si `python3` no te funciona. Ambos deben apuntar a Python 3.14.
+
 ## Instalación
 
     python -m venv venv
