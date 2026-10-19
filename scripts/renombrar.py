@@ -7,7 +7,7 @@ import re                 # re: busca patrones en los nombres de archivo
 # OJO: Thumbs.db y desktop.ini NO empiezan con punto, por eso van aparte.
 OCULTOS = {".ds_store", "thumbs.db", "desktop.ini"}
 
-def renombrar(carpeta, prefijo, simular):
+def renombrar(carpeta, prefijo, simular, extensiones=None):
     ruta = Path(carpeta)
 
     # Validamos que la carpeta exista (programación defensiva)
@@ -15,14 +15,36 @@ def renombrar(carpeta, prefijo, simular):
         print(f"❌ La carpeta '{carpeta}' no existe.")
         return
 
+    # Extensiones permitidas: "jpg,png" -> {"jpg", "png"}. Sin filtro, todas.
+    permitidas = None
+    if extensiones:
+        permitidas = {
+            e.strip().lower().lstrip(".")
+            for e in extensiones.split(",")
+            if e.strip()
+        }
+        if not permitidas:
+            permitidas = None
+
     # sorted() para que el orden sea siempre el mismo
     # Los ocultos (.gitkeep, .DS_Store) y los del sistema (Thumbs.db) se ignoran
-    archivos = sorted(
+    todos = sorted(
         f for f in ruta.iterdir()
         if f.is_file()
         and not f.name.startswith(".")
         and f.name.lower() not in OCULTOS
     )
+
+    # Filtramos por extensión si el usuario pidió una lista
+    if permitidas:
+        archivos = [f for f in todos if f.suffix.lower().lstrip(".") in permitidas]
+        ignorados = [f for f in todos if f.suffix.lower().lstrip(".") not in permitidas]
+    else:
+        archivos = todos
+        ignorados = []
+
+    for archivo in ignorados:
+        print(f"➖ Ignorado (extensión fuera de la lista): {archivo.name}")
 
     # Patrón del nombre final: producto_001.jpg  (prefijo + _ + 3 dígitos + extensión)
     patron = re.compile(rf"^{re.escape(prefijo)}_(\d{{3}})(\.[^.]+)?$")
@@ -69,11 +91,14 @@ def renombrar(carpeta, prefijo, simular):
         renombrados += 1            # fuera del if: en simulación cuenta lo que haría
 
     # Resumen final
+    extra = f", {errores} errores" if errores else ""
+    if ignorados:
+        extra += f", {len(ignorados)} ignorados por extensión"
+
     if simular:
         print(f"\n🔎 Simulación: se renombrarían {renombrados} archivos, "
-              f"{saltados} ya estaban bien. No se cambió nada.")
+              f"{saltados} ya estaban bien{extra}. No se cambió nada.")
     else:
-        extra = f", {errores} errores" if errores else ""
         print(f"\n✅ {renombrados} archivos renombrados, {saltados} saltados{extra}.")
 
 if __name__ == "__main__":
@@ -81,6 +106,8 @@ if __name__ == "__main__":
     parser.add_argument("carpeta", help="Carpeta con los archivos")
     parser.add_argument("--prefijo", default="archivo", help="Prefijo del nuevo nombre")
     parser.add_argument("--simular", action="store_true", help="Solo mostrar, no renombrar")
+    parser.add_argument("--extensiones", default=None,
+                        help="Renombrar solo estas extensiones, separadas por coma. Ej: jpg,png")
     args = parser.parse_args()
 
-    renombrar(args.carpeta, args.prefijo, args.simular)
+    renombrar(args.carpeta, args.prefijo, args.simular, args.extensiones)
