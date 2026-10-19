@@ -8,6 +8,19 @@ Colección de scripts para automatizar tareas repetitivas:
 
 > 🚧 Proyecto en desarrollo.
 
+## Ejemplo rápido
+
+```bash
+# 1. Simulación: ver qué haría SIN tocar nada (empezá siempre así)
+python3 scripts/renombrar.py datos_prueba/fotos --prefijo producto --simular
+
+# 2. Renombrar de verdad
+python3 scripts/renombrar.py datos_prueba/fotos --prefijo producto
+
+# 3. Renombrar solo algunos tipos de archivo
+python3 scripts/renombrar.py datos_prueba/fotos --prefijo producto --extensiones jpg,png
+```
+
 ## Requisitos
 
 - Python 3.14 (versión usada en este proyecto, compatible con 3.10+).
@@ -18,6 +31,8 @@ Colección de scripts para automatizar tareas repetitivas:
 - Modo simulación antes de tocar nada.
 - No pisa archivos existentes.
 - Se puede correr varias veces sin romper nada.
+- Ignora archivos de sistema (.DS_Store, Thumbs.db) y maneja errores sin frenarse.
+- Permite elegir qué tipos de archivo renombrar.
 
 ## Instalación
 
@@ -28,17 +43,6 @@ Colección de scripts para automatizar tareas repetitivas:
 ## Uso
 
 ### 1. Renombrar archivos en masa
-
-```bash
-# Simulación: muestra lo que haría sin tocar nada (empezá siempre así)
-python3 scripts/renombrar.py datos_prueba/fotos --prefijo producto --simular
-
-# Renombrar de verdad
-python3 scripts/renombrar.py datos_prueba/fotos --prefijo producto
-
-# Renombrar solo algunos tipos de archivo
-python3 scripts/renombrar.py datos_prueba/fotos --prefijo producto --extensiones jpg,png
-```
 
 Opciones:
 
