@@ -1,6 +1,7 @@
 # renombrar.py
 from pathlib import Path  # Path: forma moderna de trabajar con rutas de archivos
 import argparse           # argparse: lee opciones escritas en la terminal
+import re                 # re: busca patrones en los nombres de archivo
 
 def renombrar(carpeta, prefijo, simular):
     ruta = Path(carpeta)
@@ -13,21 +14,49 @@ def renombrar(carpeta, prefijo, simular):
     # sorted() para que el orden sea siempre el mismo
     archivos = sorted(f for f in ruta.iterdir() if f.is_file())
 
-    for i, archivo in enumerate(archivos, start=1):
-        # suffix = extensión (.jpg, .pdf...). Se conserva igual.
-        nuevo_nombre = f"{prefijo}_{i:03d}{archivo.suffix}"  # :03d -> 001, 002...
-        destino = ruta / nuevo_nombre
+    # Patrón del nombre final: producto_001.jpg  (prefijo + _ + 3 dígitos + extensión)
+    patron = re.compile(rf"^{re.escape(prefijo)}_(\d{{3}})(\.[^.]+)?$")
 
-        if destino.exists():
-            print(f"⚠️  Saltado (ya existe): {nuevo_nombre}")
-            continue
+    ya_renombrados = []   # (archivo, número que ya tiene)
+    a_renombrar = []      # archivos que todavía hay que renombrar
+    for f in archivos:
+        m = patron.match(f.name)
+        if m:
+            ya_renombrados.append((f, int(m.group(1))))
+        else:
+            a_renombrar.append(f)
+
+    # Los archivos ya renombrados se respetan: el siguiente número es el mayor usado + 1
+    siguiente = max((n for _, n in ya_renombrados), default=0) + 1
+
+    renombrados = 0
+    saltados = len(ya_renombrados)
+
+    for archivo, _ in ya_renombrados:
+        print(f"➖ Sin cambios (ya tiene el nombre correcto): {archivo.name}")
+
+    for archivo in a_renombrar:
+        # Extensión siempre en minúsculas: .JPG -> .jpg
+        extension = archivo.suffix.lower()
+
+        # Busco el primer número libre para no pisar ningún archivo
+        while True:
+            nuevo_nombre = f"{prefijo}_{siguiente:03d}{extension}"
+            destino = ruta / nuevo_nombre
+            siguiente += 1
+            if not destino.exists():
+                break
 
         print(f"{archivo.name}  →  {nuevo_nombre}")
         if not simular:           # Solo renombra si NO es simulación
             archivo.rename(destino)
+        renombrados += 1
 
+    # Resumen final
     if simular:
-        print("\n🔎 Modo simulación: no se cambió nada. Quitá --simular para aplicar.")
+        print(f"\n🔎 Simulación: {renombrados} archivos renombrados, {saltados} saltados. No se cambió nada.")
+    else:
+        print(f"\n✅ {renombrados} archivos renombrados, {saltados} saltados.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Renombra archivos en masa")
