@@ -6,7 +6,8 @@ Colección de scripts para automatizar tareas repetitivas:
 2. Consolidar varios Excel en uno solo
 3. Enviar emails personalizados desde una lista
 
-> 🚧 Proyecto en desarrollo.
+> 🚧 En desarrollo: el script 1 (renombrar archivos) está terminado y listo para usar.
+> Los scripts 2 (consolidar Excel) y 3 (enviar emails) están en camino.
 
 ## Ejemplo rápido
 
