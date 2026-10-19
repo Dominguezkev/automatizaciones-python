@@ -3,6 +3,10 @@ from pathlib import Path  # Path: forma moderna de trabajar con rutas de archivo
 import argparse           # argparse: lee opciones escritas en la terminal
 import re                 # re: busca patrones en los nombres de archivo
 
+# Archivos del sistema o del editor que no hay que renombrar nunca.
+# OJO: Thumbs.db y desktop.ini NO empiezan con punto, por eso van aparte.
+OCULTOS = {".ds_store", "thumbs.db", "desktop.ini"}
+
 def renombrar(carpeta, prefijo, simular):
     ruta = Path(carpeta)
 
@@ -12,7 +16,13 @@ def renombrar(carpeta, prefijo, simular):
         return
 
     # sorted() para que el orden sea siempre el mismo
-    archivos = sorted(f for f in ruta.iterdir() if f.is_file())
+    # Los ocultos (.gitkeep, .DS_Store) y los del sistema (Thumbs.db) se ignoran
+    archivos = sorted(
+        f for f in ruta.iterdir()
+        if f.is_file()
+        and not f.name.startswith(".")
+        and f.name.lower() not in OCULTOS
+    )
 
     # Patrón del nombre final: producto_001.jpg  (prefijo + _ + 3 dígitos + extensión)
     patron = re.compile(rf"^{re.escape(prefijo)}_(\d{{3}})(\.[^.]+)?$")
@@ -31,6 +41,7 @@ def renombrar(carpeta, prefijo, simular):
 
     renombrados = 0
     saltados = len(ya_renombrados)
+    errores = 0
 
     for archivo, _ in ya_renombrados:
         print(f"➖ Sin cambios (ya tiene el nombre correcto): {archivo.name}")
@@ -49,14 +60,21 @@ def renombrar(carpeta, prefijo, simular):
 
         print(f"{archivo.name}  →  {nuevo_nombre}")
         if not simular:           # Solo renombra si NO es simulación
-            archivo.rename(destino)
-        renombrados += 1
+            try:
+                archivo.rename(destino)
+            except OSError as e:  # OSError: errores de archivos o permisos
+                print(f"❌ No se pudo renombrar {archivo.name}: {e}")
+                errores += 1
+                continue            # sigue con el próximo archivo
+        renombrados += 1            # fuera del if: en simulación cuenta lo que haría
 
     # Resumen final
     if simular:
-        print(f"\n🔎 Simulación: {renombrados} archivos renombrados, {saltados} saltados. No se cambió nada.")
+        print(f"\n🔎 Simulación: se renombrarían {renombrados} archivos, "
+              f"{saltados} ya estaban bien. No se cambió nada.")
     else:
-        print(f"\n✅ {renombrados} archivos renombrados, {saltados} saltados.")
+        extra = f", {errores} errores" if errores else ""
+        print(f"\n✅ {renombrados} archivos renombrados, {saltados} saltados{extra}.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Renombra archivos en masa")
