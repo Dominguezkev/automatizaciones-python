@@ -68,7 +68,9 @@ def consolidar(carpeta, salida, simular=False):
             # sheet_name=None -> lee TODAS las hojas (devuelve un dict nombre -> tabla)
             hojas = pd.read_excel(archivo, sheet_name=None)
         except Exception as e:
-            print(f"❌ No se pudo leer {archivo.name}: {e}")
+            # Mensaje para el cliente + el nombre del error, por si hay que pedir ayuda
+            print(f"❌ No se pudo leer {archivo.name}: "
+                  f"¿está dañado o no es un Excel real? ({type(e).__name__})")
             archivos_fallidos += 1
             continue
 
