@@ -3,7 +3,7 @@ from pathlib import Path
 import argparse
 import pandas as pd
 
-def consolidar(carpeta, salida):
+def consolidar(carpeta, salida, simular=False):
     ruta = Path(carpeta)
     if not ruta.is_dir():
         print(f"❌ La carpeta '{carpeta}' no existe.")
@@ -53,6 +53,12 @@ def consolidar(carpeta, salida):
         return
 
     total = pd.concat(tablas, ignore_index=True)
+
+    if simular:
+        print(f"\n🔎 Simulación: se unirían {len(tablas)} hojas ({len(total)} filas) "
+              f"→ {salida}. No se escribió nada.")
+        return
+
     total.to_excel(salida, index=False)
     print(f"\n✅ {len(tablas)} hojas unidas → {salida} ({len(total)} filas)")
 
@@ -60,5 +66,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Une varios Excel en uno solo")
     parser.add_argument("carpeta", help="Carpeta con los .xlsx")
     parser.add_argument("--salida", default="consolidado.xlsx", help="Nombre del archivo final")
+    parser.add_argument("--simular", action="store_true", help="Solo mostrar, no escribir el Excel")
     args = parser.parse_args()
-    consolidar(args.carpeta, args.salida)
+    consolidar(args.carpeta, args.salida, args.simular)
