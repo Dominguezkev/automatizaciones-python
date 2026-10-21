@@ -20,6 +20,9 @@ def consolidar(carpeta, salida, simular=False):
 
     tablas = []
     columnas_vistas = None   # para avisar si hay columnas distintas
+    hojas_omitidas = 0       # hojas vacías que se dejaron afuera
+    archivos_fallidos = 0    # archivos que no se pudieron leer
+    hojas_distintas = 0      # hojas con columnas que no coinciden
 
     for archivo in archivos:
         try:
@@ -27,11 +30,13 @@ def consolidar(carpeta, salida, simular=False):
             hojas = pd.read_excel(archivo, sheet_name=None)
         except Exception as e:
             print(f"❌ No se pudo leer {archivo.name}: {e}")
+            archivos_fallidos += 1
             continue
 
         for nombre_hoja, df in hojas.items():
             if df.empty:
                 print(f"➖ Hoja vacía, se omite: {archivo.name} / {nombre_hoja}")
+                hojas_omitidas += 1
                 continue
 
             df["origen"] = archivo.name      # de qué archivo vino
@@ -42,8 +47,12 @@ def consolidar(carpeta, salida, simular=False):
             if columnas_vistas is None:
                 columnas_vistas = cols
             elif cols != columnas_vistas:
+                hojas_distintas += 1
+                faltan = sorted(columnas_vistas - cols)
+                sobran = sorted(cols - columnas_vistas)
                 print(f"⚠️  Columnas distintas en {archivo.name} / {nombre_hoja}: "
-                      f"{sorted(cols ^ columnas_vistas)}")
+                      f"faltan {faltan}, sobran {sobran}. "
+                      f"Las {len(df)} filas quedan con celdas vacías.")
 
             tablas.append(df)
             print(f"✔ {archivo.name} / {nombre_hoja}: {len(df)} filas")
@@ -53,6 +62,24 @@ def consolidar(carpeta, salida, simular=False):
         return
 
     total = pd.concat(tablas, ignore_index=True)
+
+    # Nada se pierde en silencio: avisamos cuántas filas quedan con celdas vacías
+    incompletas = int(total.isna().any(axis=1).sum())
+    if incompletas:
+        vacios = total.isna().sum()
+        detalle = ", ".join(f"{col}: {n}" for col, n in vacios[vacios > 0].items())
+        print(f"⚠️  {incompletas} de {len(total)} filas quedan con celdas vacías ({detalle}).")
+
+    # Detalle de lo que quedó afuera
+    omitidos = []
+    if hojas_omitidas:
+        omitidos.append(f"{hojas_omitidas} hoja(s) vacía(s)")
+    if archivos_fallidos:
+        omitidos.append(f"{archivos_fallidos} archivo(s) ilegible(s)")
+    if hojas_distintas:
+        omitidos.append(f"{hojas_distintas} hoja(s) con columnas distintas")
+    if omitidos:
+        print("➖ Omitido del resultado: " + " · ".join(omitidos))
 
     if simular:
         print(f"\n🔎 Simulación: se unirían {len(tablas)} hojas ({len(total)} filas) "
