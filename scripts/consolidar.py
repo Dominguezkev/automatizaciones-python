@@ -3,6 +3,45 @@ from pathlib import Path
 import argparse
 import pandas as pd
 
+def armar_resumen(total, hojas_omitidas, archivos_fallidos, hojas_distintas):
+    """Tabla de dos columnas (Indicador, Valor) para el cliente.
+
+    Todos los números salen de `total` (los datos reales), salvo los contadores
+    de omisiones: así el resumen nunca puede contradecir a los datos.
+    """
+    datos = {
+        "Filas consolidadas": len(total),
+        "Archivos con datos": total["origen"].nunique(),
+        "Hojas unidas": total.groupby(["origen", "hoja"]).ngroups,
+        "Hojas omitidas (vacías)": hojas_omitidas,
+        "Archivos ilegibles": archivos_fallidos,
+        "Hojas con columnas distintas": hojas_distintas,
+        "Filas con celdas vacías": int(total.isna().any(axis=1).sum()),
+    }
+
+    # Celdas vacías por columna
+    vacios = total.isna().sum()
+    for col, n in vacios[vacios > 0].items():
+        datos[f"Celdas vacías en '{col}'"] = int(n)
+
+    # Rango de fechas: solo si la columna ya es de tipo fecha.
+    # Con fechas en texto el orden alfabético no es el orden real, así que
+    # mejor no mostrar un rango que podría ser falso.
+    if "fecha" in total.columns and pd.api.types.is_datetime64_any_dtype(total["fecha"]):
+        fechas = total["fecha"].dropna()
+        if not fechas.empty:
+            datos["Fecha más antigua"] = str(fechas.min())
+            datos["Fecha más reciente"] = str(fechas.max())
+        else:
+            datos["Rango de fechas"] = "sin fechas"
+
+    # Todo como texto: en una misma columna, Excel muestra mejor los valores iguales
+    return pd.DataFrame(
+        [(k, str(v)) for k, v in datos.items()],
+        columns=["Indicador", "Valor"],
+    )
+
+
 def consolidar(carpeta, salida, simular=False):
     ruta = Path(carpeta)
     if not ruta.is_dir():
@@ -84,10 +123,19 @@ def consolidar(carpeta, salida, simular=False):
     if simular:
         print(f"\n🔎 Simulación: se unirían {len(tablas)} hojas ({len(total)} filas) "
               f"→ {salida}. No se escribió nada.")
+        print("\nHoja 'Resumen' que se generaría:")
+        print(armar_resumen(total, hojas_omitidas, archivos_fallidos, hojas_distintas)
+              .to_string(index=False))
         return
 
-    total.to_excel(salida, index=False)
+    # Dos hojas: 'Resumen' primero (es lo primero que mira el cliente) y 'Datos'
+    resumen = armar_resumen(total, hojas_omitidas, archivos_fallidos, hojas_distintas)
+    with pd.ExcelWriter(salida) as w:
+        resumen.to_excel(w, sheet_name="Resumen", index=False)
+        total.to_excel(w, sheet_name="Datos", index=False)
     print(f"\n✅ {len(tablas)} hojas unidas → {salida} ({len(total)} filas)")
+    print("\nHoja 'Resumen' del archivo generado:")
+    print(resumen.to_string(index=False))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Une varios Excel en uno solo")
