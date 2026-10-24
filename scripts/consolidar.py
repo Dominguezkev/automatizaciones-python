@@ -154,6 +154,16 @@ def consolidar(carpeta, salida, simular=False, formato_fecha="dia", fila_encabez
                 hojas_omitidas += 1
                 continue
 
+            # Aviso: si pandas nombra columnas 'Unnamed', los encabezados reales
+            # están en otra fila (típicamente hay un título arriba de todo).
+            # El dato entra igual, pero avisamos para que nadie entregue basura.
+            sin_nombre = [c for c in df.columns if str(c).startswith("Unnamed")]
+            if sin_nombre:
+                print(f"⚠️  {archivo.name} / {nombre_hoja}: los encabezados no están en la "
+                      f"fila {fila_encabezado} que leí (hay {len(sin_nombre)} columna(s) "
+                      f"sin nombre). Si el reporte tiene títulos arriba, probá "
+                      f"--fila-encabezado 2 (o la fila que corresponda).")
+
             df["origen"] = archivo.name      # de qué archivo vino
             df["hoja"] = nombre_hoja         # de qué hoja vino
 
