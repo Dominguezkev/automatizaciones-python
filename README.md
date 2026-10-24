@@ -63,3 +63,46 @@ documento final.PDF  →  producto_002.pdf
 Nombres del estilo `producto_001.jpg`, con la extensión siempre en minúsculas.
 Los archivos ocultos (`.gitkeep`, `.DS_Store`) y los del sistema (`Thumbs.db`)
 se ignoran, y el script avisa si algún archivo no se pudo renombrar.
+
+### 2. Consolidar varios Excel en uno
+
+Une todas las hojas de todos los `.xlsx` de una carpeta en un solo archivo,
+con una hoja `Resumen` que dice cuántos datos entraron y qué quedó afuera:
+
+![Resumen del Excel consolidado](docs/resumen.png)
+
+```bash
+# 1. Simulación: ver qué uniría SIN escribir nada (empezá siempre así)
+python3 scripts/consolidar.py datos_prueba/reportes --simular
+
+# 2. Consolidar de verdad
+python3 scripts/consolidar.py datos_prueba/reportes --salida consolidado.xlsx
+
+# 3. Reporte de cliente con títulos arriba de los encabezados
+python3 scripts/consolidar.py datos_prueba/cliente --salida consolidado.xlsx \
+    --formato-fecha auto --fila-encabezado 3
+```
+
+Opciones:
+
+- `--salida`: nombre del Excel final (por defecto `consolidado.xlsx`).
+- `--simular`: solo muestra lo que haría, no escribe nada.
+- `--formato-fecha dia|mes|auto`: cómo leer fechas tipo `05/02/2026`.
+  `dia` = día/mes (LatAm), `mes` = mes/día (EE. UU.), `auto` lo deduce solo.
+- `--fila-encabezado N`: fila donde están los encabezados, por si el reporte
+  tiene títulos arriba (ej: `3` = tercera fila). Por defecto 1.
+
+Qué hace el script:
+
+- Lee **todas las hojas** de cada archivo, no solo la primera.
+- Omite hojas vacías y avisos legibles si un archivo no se pudo leer:
+  nada queda afuera en silencio.
+- Avisa si una hoja tiene columnas distintas a las demás.
+- Normaliza la columna `fecha`: acepta fechas reales de Excel y texto en
+  varios formatos, y las deja como fecha de verdad en el resultado final.
+- El Excel de salida trae dos hojas: `Resumen` (indicadores para el cliente)
+  y `Datos` (todo el contenido unido, con columnas `origen` y `hoja`).
+
+> 💡 Si el reporte tiene un título en la primera fila, pandas nombla las
+> columnas `Unnamed: 1`, `Unnamed: 2`… El script entra igual pero **avisa**
+> en pantalla para que uses `--fila-encabezado` con la fila que corresponda.
