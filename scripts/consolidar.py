@@ -29,17 +29,16 @@ def normalizar_fecha(valor, formato_local="%d/%m/%Y"):
 def elegir_formato(serie, eleccion):
     """Formato local a usar según --formato-fecha.
 
-    En 'auto' decide UNA VEZ por columna: si algún valor tiene un componente
-    mayor a 12, eso define de qué lado está el día. Si nada lo define, se usa
-    día/mes y el script avisa que fue una decisión nuestra.
-    """
-    if eleccion == "mes":
-        return "%m/%d/%Y", "definido"
-    if eleccion == "dia":
-        return "%d/%m/%Y", "definido"
+    Devuelve (formato_local, tipo):
+    - 'ya_fechas': toda la columna ya viene como fecha real (openpyxl), nada que interpretar.
+    - 'definido': el formato quedó decidido sin ambigüedad.
+    - 'ambiguo': ninguna fecha definió qué lado es el día; se usa día/mes y se avisa.
 
-    hay_dia = hay_mes = False
+    La detección va PRIMERO: si la columna ya tiene fechas reales, la elección
+    del usuario no cambia nada porque no hay texto que interpretar.
+    """
     hay_texto = False
+    hay_dia = hay_mes = False
     for valor in serie:
         if pd.isna(valor) or isinstance(valor, (date, datetime)):
             continue                          # no aporta para definir el formato
@@ -57,7 +56,13 @@ def elegir_formato(serie, eleccion):
             hay_mes = True
 
     if not hay_texto:
-        return "%Y-%m-%d", "ya_fechas"        # la columna ya venía como fecha real
+        return "%Y-%m-%d", "ya_fechas"
+
+    if eleccion == "mes":
+        return "%m/%d/%Y", "definido"
+    if eleccion == "dia":
+        return "%d/%m/%Y", "definido"
+
     if hay_dia and not hay_mes:
         return "%d/%m/%Y", "definido"
     if hay_mes and not hay_dia:
