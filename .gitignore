@@ -8,6 +8,9 @@ venv/
 __pycache__/
 *.pyc
 
+# Archivos de bloqueo de LibreOffice (cuando tenés el Excel abierto)
+.~lock.*#
+
 # Resultados de ejecución
 *.log
 consolidado.xlsx
