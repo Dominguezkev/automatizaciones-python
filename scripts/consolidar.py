@@ -241,6 +241,10 @@ def consolidar(carpeta, salida, simular=False, formato_fecha="dia", fila_encabez
     resumen = armar_resumen(total, hojas_omitidas, archivos_fallidos, hojas_distintas)
     with pd.ExcelWriter(salida, date_format="YYYY-MM-DD") as w:
         resumen.to_excel(w, sheet_name="Resumen", index=False)
+        # Ajusta el ancho de las columnas del Resumen al contenido
+        ws = w.sheets["Resumen"]
+        ws.column_dimensions["A"].width = 32
+        ws.column_dimensions["B"].width = 22
         total.to_excel(w, sheet_name="Datos", index=False)
     print(f"\n✅ {len(tablas)} hojas unidas → {salida} ({len(total)} filas)")
     print("\nHoja 'Resumen' del archivo generado:")
