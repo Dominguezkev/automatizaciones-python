@@ -92,8 +92,9 @@ def armar_resumen(total, hojas_omitidas, archivos_fallidos, hojas_distintas):
     if "fecha" in total.columns and pd.api.types.is_datetime64_any_dtype(total["fecha"]):
         fechas = total["fecha"].dropna()
         if not fechas.empty:
-            datos["Fecha más antigua"] = str(fechas.min())
-            datos["Fecha más reciente"] = str(fechas.max())
+            # strftime para que el resumen muestre la fecha, no la fecha con la hora
+            datos["Fecha más antigua"] = fechas.min().strftime("%Y-%m-%d")
+            datos["Fecha más reciente"] = fechas.max().strftime("%Y-%m-%d")
         else:
             datos["Rango de fechas"] = "sin fechas"
 
