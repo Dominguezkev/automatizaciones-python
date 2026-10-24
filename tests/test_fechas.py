@@ -16,7 +16,7 @@ import pandas as pd
 # Permite ejecutar este archivo desde cualquier carpeta
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from scripts.consolidar import normalizar_fecha   # noqa: E402
+from scripts.consolidar import elegir_formato, normalizar_fecha   # noqa: E402
 
 
 def test_fecha_iso():
@@ -54,6 +54,35 @@ def test_datetime_de_python():
 def test_none_devuelve_nat():
     # Celda vacía: la función no se rompe, devuelve vacío
     assert pd.isna(normalizar_fecha(None))
+
+
+# --- elegir_formato: la detección va ANTES que la elección del usuario ---
+
+def test_elegir_formato_con_fechas_reales_dia():
+    # Columna con fechas reales de Excel (Timestamps): no hay texto que interpretar
+    serie = pd.Series([pd.Timestamp("2026-01-15"), pd.Timestamp("2026-02-20")])
+    formato, tipo = elegir_formato(serie, "dia")
+    assert tipo == "ya_fechas"
+
+
+def test_elegir_formato_definido_cuando_una_fecha_decide():
+    # 13 > 12 en la primera posición: es día/mes y lo define una sola fila
+    serie = pd.Series(["05/02/2026", "13/01/2026"])
+    formato, tipo = elegir_formato(serie, "auto")
+    assert (formato, tipo) == ("%d/%m/%Y", "definido")
+
+
+def test_elegir_formato_ambiguo_avisa():
+    # Ninguna fecha supera el 12: no se puede deducir
+    serie = pd.Series(["05/02/2026", "10/02/2026"])
+    formato, tipo = elegir_formato(serie, "auto")
+    assert (formato, tipo) == ("%d/%m/%Y", "ambiguo")
+
+
+def test_elegir_formato_eleccion_explicita_mes():
+    serie = pd.Series(["05/02/2026"])
+    formato, tipo = elegir_formato(serie, "mes")
+    assert (formato, tipo) == ("%m/%d/%Y", "definido")
 
 
 if __name__ == "__main__":
