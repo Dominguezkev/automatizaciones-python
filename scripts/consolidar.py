@@ -1,7 +1,69 @@
 # consolidar.py
 from pathlib import Path
 import argparse
+from datetime import date, datetime
+
 import pandas as pd
+
+
+def normalizar_fecha(valor, formato_local="%d/%m/%Y"):
+    """Convierte lo que venga en una fecha real.
+
+    - Fecha ya real (openpyxl suele mandar datetime.date/datetime): se respeta tal cual.
+    - Texto: primero ISO (2026-01-05), después el formato local del cliente,
+      si no se puede interpretar, queda vacía (NaT) y el script avisa.
+    """
+    if pd.isna(valor):                                     # None, NaN, NaT
+        return pd.NaT
+    if isinstance(valor, (pd.Timestamp, datetime, date)):   # ya es fecha real
+        return pd.Timestamp(valor)
+    texto = str(valor).strip()
+    for fmt in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", formato_local):
+        try:
+            return pd.to_datetime(texto, format=fmt)
+        except (ValueError, TypeError):
+            continue
+    return pd.NaT                                          # no se pudo interpretar
+
+
+def elegir_formato(serie, eleccion):
+    """Formato local a usar según --formato-fecha.
+
+    En 'auto' decide UNA VEZ por columna: si algún valor tiene un componente
+    mayor a 12, eso define de qué lado está el día. Si nada lo define, se usa
+    día/mes y el script avisa que fue una decisión nuestra.
+    """
+    if eleccion == "mes":
+        return "%m/%d/%Y", "definido"
+    if eleccion == "dia":
+        return "%d/%m/%Y", "definido"
+
+    hay_dia = hay_mes = False
+    hay_texto = False
+    for valor in serie:
+        if pd.isna(valor) or isinstance(valor, (date, datetime)):
+            continue                          # no aporta para definir el formato
+        partes = str(valor).strip().split("/")
+        if len(partes) != 3:
+            continue
+        try:
+            primero, segundo = int(partes[0]), int(partes[1])
+        except ValueError:
+            continue
+        hay_texto = True
+        if primero > 12:
+            hay_dia = True
+        if segundo > 12:
+            hay_mes = True
+
+    if not hay_texto:
+        return "%Y-%m-%d", "ya_fechas"        # la columna ya venía como fecha real
+    if hay_dia and not hay_mes:
+        return "%d/%m/%Y", "definido"
+    if hay_mes and not hay_dia:
+        return "%m/%d/%Y", "definido"
+    return "%d/%m/%Y", "ambiguo"
+
 
 def armar_resumen(total, hojas_omitidas, archivos_fallidos, hojas_distintas):
     """Tabla de dos columnas (Indicador, Valor) para el cliente.
@@ -42,7 +104,7 @@ def armar_resumen(total, hojas_omitidas, archivos_fallidos, hojas_distintas):
     )
 
 
-def consolidar(carpeta, salida, simular=False):
+def consolidar(carpeta, salida, simular=False, formato_fecha="dia"):
     ruta = Path(carpeta)
     if not ruta.is_dir():
         print(f"❌ La carpeta '{carpeta}' no existe.")
@@ -104,6 +166,28 @@ def consolidar(carpeta, salida, simular=False):
 
     total = pd.concat(tablas, ignore_index=True)
 
+    # Normalización de fechas: de texto a fecha real
+    if "fecha" in total.columns and total["fecha"].notna().any():
+        formato_local, tipo = elegir_formato(total["fecha"], formato_fecha)
+        if tipo == "ya_fechas":
+            # openpyxl ya trajo fechas correctas: solo garantizamos el tipo
+            total["fecha"] = pd.to_datetime(total["fecha"])
+            print("ℹ️  La columna 'fecha' ya venía como fecha real de Excel.")
+        else:
+            original = total["fecha"]
+            total["fecha"] = pd.to_datetime(
+                original.apply(lambda v: normalizar_fecha(v, formato_local))
+            )
+            # Solo cuentan las que tenían contenido y quedaron vacías
+            malas = int(original.notna().sum() - total["fecha"].notna().sum())
+            if tipo == "ambiguo":
+                print(f"⚠️  Fechas ambiguas: se interpretaron como DD/MM/AAAA. "
+                      f"Si viene al revés, usá --formato-fecha mes.")
+            if malas:
+                print(f"⚠️  {malas} fecha(s) no se pudieron interpretar (quedan vacías).")
+            if original.notna().any():
+                print(f"ℹ️  Columna 'fecha' normalizada a fecha real ({formato_local}).")
+
     # Nada se pierde en silencio: avisamos cuántas filas quedan con celdas vacías
     incompletas = int(total.isna().any(axis=1).sum())
     if incompletas:
@@ -130,9 +214,10 @@ def consolidar(carpeta, salida, simular=False):
               .to_string(index=False))
         return
 
-    # Dos hojas: 'Resumen' primero (es lo primero que mira el cliente) y 'Datos'
+    # Dos hojas: 'Resumen' primero (es lo primero que mira el cliente) y 'Datos'.
+    # date_format para que Excel muestre 2026-01-05 y no 2026-01-05 00:00:00
     resumen = armar_resumen(total, hojas_omitidas, archivos_fallidos, hojas_distintas)
-    with pd.ExcelWriter(salida) as w:
+    with pd.ExcelWriter(salida, date_format="YYYY-MM-DD") as w:
         resumen.to_excel(w, sheet_name="Resumen", index=False)
         total.to_excel(w, sheet_name="Datos", index=False)
     print(f"\n✅ {len(tablas)} hojas unidas → {salida} ({len(total)} filas)")
@@ -144,5 +229,8 @@ if __name__ == "__main__":
     parser.add_argument("carpeta", help="Carpeta con los .xlsx")
     parser.add_argument("--salida", default="consolidado.xlsx", help="Nombre del archivo final")
     parser.add_argument("--simular", action="store_true", help="Solo mostrar, no escribir el Excel")
+    parser.add_argument("--formato-fecha", choices=["dia", "mes", "auto"], default="dia",
+                        help="Cómo interpretar fechas tipo 05/02/2026: día/mes (LatAm) o "
+                             "mes/día (EE. UU.). 'auto' deduce una vez por columna.")
     args = parser.parse_args()
-    consolidar(args.carpeta, args.salida, args.simular)
+    consolidar(args.carpeta, args.salida, args.simular, args.formato_fecha)
