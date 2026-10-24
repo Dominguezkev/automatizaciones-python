@@ -105,10 +105,14 @@ def armar_resumen(total, hojas_omitidas, archivos_fallidos, hojas_distintas):
     )
 
 
-def consolidar(carpeta, salida, simular=False, formato_fecha="dia"):
+def consolidar(carpeta, salida, simular=False, formato_fecha="dia", fila_encabezado=1):
     ruta = Path(carpeta)
     if not ruta.is_dir():
         print(f"❌ La carpeta '{carpeta}' no existe.")
+        return
+
+    if fila_encabezado < 1:
+        print("❌ --fila-encabezado tiene que ser 1 o más (1 = primera fila del Excel).")
         return
 
     # Ignoramos archivos temporales de Excel (~$...) y el propio archivo de salida
@@ -129,7 +133,9 @@ def consolidar(carpeta, salida, simular=False, formato_fecha="dia"):
     for archivo in archivos:
         try:
             # sheet_name=None -> lee TODAS las hojas (devuelve un dict nombre -> tabla)
-            hojas = pd.read_excel(archivo, sheet_name=None)
+            # header=fila_encabezado-1: los reports de clientes suelen tener
+            # títulos arriba de los encabezados; esto los salta.
+            hojas = pd.read_excel(archivo, sheet_name=None, header=fila_encabezado - 1)
         except Exception as e:
             # Mensaje para el cliente + el nombre del error, por si hay que pedir ayuda
             print(f"❌ No se pudo leer {archivo.name}: "
@@ -233,5 +239,9 @@ if __name__ == "__main__":
     parser.add_argument("--formato-fecha", choices=["dia", "mes", "auto"], default="dia",
                         help="Cómo interpretar fechas tipo 05/02/2026: día/mes (LatAm) o "
                              "mes/día (EE. UU.). 'auto' deduce una vez por columna.")
+    parser.add_argument("--fila-encabezado", type=int, default=1,
+                        help="Fila donde están los encabezados, por si el reporte tiene "
+                             "títulos arriba (ej: 3 = tercera fila). Por defecto 1.")
     args = parser.parse_args()
-    consolidar(args.carpeta, args.salida, args.simular, args.formato_fecha)
+    consolidar(args.carpeta, args.salida, args.simular, args.formato_fecha,
+               args.fila_encabezado)
