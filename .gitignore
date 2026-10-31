@@ -20,3 +20,6 @@ datos_prueba/fotos/
 datos_prueba/fotos_backup/
 datos_prueba/reportes/
 datos_prueba/cliente/
+# El CSV de contactos puede tener emails reales
+datos_prueba/contactos.csv
+datos_prueba/plantilla.txt
