@@ -2,6 +2,7 @@
 import argparse
 import csv
 import logging
+import os
 import re
 import smtplib
 import time
@@ -31,6 +32,73 @@ def preparar(contactos, plantilla):
             continue
         listos.append((email, texto))
     return listos, descartados
+
+
+def enviar_real(listos, asunto):
+    """Envía de verdad. Una sola conexión SMTP y un try/except por contacto.
+
+    Devuelve la cantidad de emails enviados (0 si se cancela o falla todo).
+    """
+    usuario = os.environ.get("GMAIL_USER", "").strip()
+    clave = os.environ.get("GMAIL_APP_PASS", "").strip()
+    if not usuario or not clave:
+        print("❌ Faltan GMAIL_USER/GMAIL_APP_PASS. Copiá .env.example como .env "
+              "y completá tus datos (ver comentarios del propio archivo).")
+        return 0
+
+    print(f"\nVas a enviar {len(listos)} emails. ¿Seguro? (s/n)")
+    try:
+        respuesta = input().strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        respuesta = ""          # sin respuesta clara -> no se envía nada
+    if respuesta not in ("s", "si", "sí", "y", "yes"):
+        print("Cancelado: no se envió nada.")
+        return 0
+
+    # Una sola conexión para todos los emails (abrir una por contacto es lento
+    # y llama más la atención de los servidores de correo).
+    try:
+        servidor = smtplib.SMTP("smtp.gmail.com", 587)
+        servidor.starttls()
+        servidor.login(usuario, clave)
+    except smtplib.SMTPAuthenticationError:
+        print("❌ Gmail rechazó las credenciales. Revisá GMAIL_USER y que "
+              "GMAIL_APP_PASS sea una Contraseña de aplicación (16 letras, "
+              "sin la contraseña normal de la cuenta).")
+        logging.error("ERROR autenticación SMTP")
+        return 0
+    except OSError as e:
+        print(f"❌ No se pudo conectar a Gmail: {e}")
+        logging.error(f"ERROR conexión SMTP: {e}")
+        return 0
+
+    try:
+        enviados = 0
+        for i, (email, texto) in enumerate(listos):
+            mensaje = EmailMessage()
+            mensaje["From"] = usuario
+            mensaje["To"] = email
+            mensaje["Subject"] = asunto
+            mensaje.set_content(texto)
+            try:
+                servidor.send_message(mensaje)
+                enviados += 1
+                logging.info(f"OK {email}")
+                print(f"✔ Enviado a {email}")
+            except (smtplib.SMTPException, OSError) as e:
+                # Si un contacto falla, se anota y se sigue con el resto
+                motivo = str(e) or type(e).__name__
+                logging.error(f"ERROR {email}: {motivo}")
+                print(f"❌ Falló {email}: {motivo} (sigue con los demás)")
+            # Pausa entre emails (no después del último) para no parecer spam
+            if i < len(listos) - 1:
+                time.sleep(1)
+    finally:
+        servidor.quit()
+
+    print(f"\n✉️  Listo: {enviados} enviados, {len(listos) - enviados} fallados. "
+          f"El detalle quedó en envios.log")
+    return enviados
 
 
 def main():
@@ -81,7 +149,7 @@ def main():
               f"{len(descartados)} descartados. No se envió nada.")
         return
 
-    print("\n(El envío real lo agregamos mañana.)")
+    enviar_real(listos, args.asunto)
 
 
 if __name__ == "__main__":
