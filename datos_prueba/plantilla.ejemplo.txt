@@ -1,0 +1,1 @@
+Hola {nombre}, te recordamos que tu turno es el {turno}.
