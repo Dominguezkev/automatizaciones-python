@@ -128,7 +128,8 @@ Opciones:
 
 - `--plantilla`: archivo con el texto, usando `{columna}` del CSV (por defecto `plantilla.txt`).
 - `--asunto`: asunto del email (por defecto `Recordatorio`).
-- `--max`: tope de envíos por corrida (por defecto 20).
+- `--max`: tope de envíos por día (por defecto 20); descuenta lo ya enviado
+  hoy leyendo `envios.log`.
 - `--enviar`: envía de verdad. Sin esto, solo simula.
 
 Configuración: las credenciales van en un `.env` que no se sube al repo

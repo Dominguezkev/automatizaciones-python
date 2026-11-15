@@ -6,6 +6,7 @@ import os
 import re
 import smtplib
 import time
+from datetime import date
 
 from email.message import EmailMessage
 from dotenv import load_dotenv
@@ -15,6 +16,21 @@ EMAIL_VALIDO = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")  # chequeo básico
 
 logging.basicConfig(filename="envios.log", level=logging.INFO,
                     format="%(asctime)s %(message)s")
+
+
+def enviados_hoy(log_path="envios.log"):
+    """Cuenta los envíos OK de hoy, leyendo el log. Es un límite diario simple.
+
+    Las líneas del log arrancan con la fecha (2026-11-15 20:38:39, ...);
+    contamos solo las que son de hoy y dicen OK (los ERROR no cuentan).
+    """
+    hoy = date.today().isoformat()
+    try:
+        with open(log_path, encoding="utf-8") as f:
+            return sum(1 for linea in f
+                       if linea.startswith(hoy) and " OK " in linea)
+    except FileNotFoundError:
+        return 0                 # sin log = no se envió nada todavía
 
 
 def preparar(contactos, plantilla):
@@ -112,7 +128,8 @@ def main():
     p.add_argument("contactos", help="CSV con columnas nombre,email,...")
     p.add_argument("--plantilla", default="plantilla.txt")
     p.add_argument("--asunto", default="Recordatorio")
-    p.add_argument("--max", type=int, default=20, help="Tope de envíos por corrida")
+    p.add_argument("--max", type=int, default=20,
+                   help="Tope de envíos por día (descuenta lo ya enviado hoy)")
     p.add_argument("--enviar", action="store_true", help="Envía de verdad (sin esto, solo simula)")
     args = p.parse_args()
 
@@ -146,10 +163,18 @@ def main():
         print("❌ No hay emails válidos para enviar.")
         return
 
-    if len(listos) > args.max:
-        print(f"⚠️  Hay {len(listos)} emails y el tope es {args.max}: "
-              f"se envían solo los primeros {args.max}.")
-        listos = listos[:args.max]
+    # Tope con memoria: al tope por corrida se le descuenta lo ya enviado hoy
+    # (leído del log). Es una versión simple del límite diario de Gmail.
+    ya_hoy = enviados_hoy()
+    disponible = args.max - ya_hoy
+    if disponible <= 0:
+        print(f"⚠️  Ya se enviaron {ya_hoy} emails hoy y el tope es {args.max}: "
+              f"no se envía nada más hoy.")
+        return
+    if len(listos) > disponible:
+        print(f"⚠️  Ya se enviaron {ya_hoy} hoy; con el tope de {args.max} "
+              f"quedan {disponible} para hoy: se envían solo los primeros {disponible}.")
+        listos = listos[:disponible]
 
     for email, texto in listos:
         print(f"✉️  {email}: {texto}")
