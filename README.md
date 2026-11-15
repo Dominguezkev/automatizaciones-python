@@ -144,3 +144,7 @@ Cómo cuida los errores:
 - Una sola conexión SMTP para todos los emails y 1 segundo de pausa entre envíos.
 - Todo queda registrado en `envios.log` (qué se envió y qué falló, por contacto).
 - Ejemplo de CSV y plantilla con datos falsos en `datos_prueba/*.ejemplo.*`.
+
+> 💡 Problemas de red: el envío usa SSL directo por el puerto 465
+> (probado en una red que bloqueaba el 587). Si tu red bloquea el 465,
+> probá al revés: `smtplib.SMTP("smtp.gmail.com", 587)` + `starttls()`.
