@@ -80,8 +80,8 @@ def enviar_real(listos, asunto):
         logging.error(f"ERROR conexión SMTP: {e}")
         return 0
 
-    try:
-        enviados = 0
+    enviados = 0
+    with servidor:          # cierra solo la conexión, incluso con errores
         for i, (email, texto) in enumerate(listos):
             mensaje = EmailMessage()
             mensaje["From"] = usuario
@@ -101,10 +101,8 @@ def enviar_real(listos, asunto):
             # Pausa entre emails (no después del último) para no parecer spam
             if i < len(listos) - 1:
                 time.sleep(1)
-    finally:
-        servidor.quit()
 
-    print(f"\n✉️  Listo: {enviados} enviados, {len(listos) - enviados} fallados. "
+    print(f"\n✉️  Listo: {enviados} enviados, {len(listos) - enviados} fallidos. "
           f"El detalle quedó en envios.log")
     return enviados
 
@@ -143,6 +141,10 @@ def main():
 
     for nombre, motivo in descartados:
         print(f"⚠️  Descartado ({nombre}): {motivo}")
+
+    if not listos:
+        print("❌ No hay emails válidos para enviar.")
+        return
 
     if len(listos) > args.max:
         print(f"⚠️  Hay {len(listos)} emails y el tope es {args.max}: "
