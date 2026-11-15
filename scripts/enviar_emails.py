@@ -57,15 +57,23 @@ def enviar_real(listos, asunto):
 
     # Una sola conexión para todos los emails (abrir una por contacto es lento
     # y llama más la atención de los servidores de correo).
+    # Puerto 465 con SSL directo: el 587 suele venir bloqueado en redes de hogar.
+    # timeout=30 para que nunca quede colgado si la red corta a mitad de camino.
     try:
-        servidor = smtplib.SMTP("smtp.gmail.com", 587)
-        servidor.starttls()
+        servidor = smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30)
         servidor.login(usuario, clave)
     except smtplib.SMTPAuthenticationError:
         print("❌ Gmail rechazó las credenciales. Revisá GMAIL_USER y que "
               "GMAIL_APP_PASS sea una Contraseña de aplicación (16 letras, "
               "sin la contraseña normal de la cuenta).")
         logging.error("ERROR autenticación SMTP")
+        return 0
+    except UnicodeEncodeError:
+        # La clave de aplicación es texto ASCII; si tiene ñ, acentos o
+        # espacios copiados de más, Gmail no la acepta.
+        print("❌ La App Password tiene caracteres no válidos (¿ñ, acentos o "
+              "espacios copiados de más?). Volvé a copiarla del panel de Google.")
+        logging.error("ERROR App Password con caracteres no ASCII")
         return 0
     except OSError as e:
         print(f"❌ No se pudo conectar a Gmail: {e}")
