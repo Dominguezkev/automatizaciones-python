@@ -111,6 +111,8 @@ Qué hace el script:
 Lee un CSV de contactos y una plantilla con `{columna}`, y envía un email
 personalizado a cada contacto con email válido.
 
+![Simulación de envío de emails](docs/envios.png)
+
 Por defecto **solo simula**: muestra exactamente qué recibiría cada persona
 y no manda nada. El envío de verdad pide confirmación antes de arrancar.
 
@@ -122,6 +124,10 @@ python3 scripts/enviar_emails.py datos_prueba/contactos.ejemplo.csv \
 # 2. Envío de verdad: muestra el detalle, pide "(s/n)" y recién ahí envía
 python3 scripts/enviar_emails.py datos_prueba/contactos.ejemplo.csv \
     --plantilla datos_prueba/plantilla.ejemplo.txt --enviar
+
+# 3. Con tope: como mucho 3 emails hoy (cuenta los que ya mandaste hoy)
+python3 scripts/enviar_emails.py datos_prueba/contactos.ejemplo.csv \
+    --plantilla datos_prueba/plantilla.ejemplo.txt --max 3
 ```
 
 Opciones:
@@ -132,19 +138,50 @@ Opciones:
   hoy leyendo `envios.log`.
 - `--enviar`: envía de verdad. Sin esto, solo simula.
 
-Configuración: las credenciales van en un `.env` que no se sube al repo
-(copiá `.env.example` y completalo; usa una Contraseña de aplicación de Google,
-no tu contraseña normal).
+#### Formato del CSV y de la plantilla
 
-Cómo cuida los errores:
+El CSV tiene una fila de encabezados y una fila por contacto; las columnas
+extra no molestan:
 
-- Los contactos con email inválido o plantilla con columnas que faltan
-  se **descartan con un aviso**, no rompen la corrida.
-- Tope de `--max` emails: si hay más, avisa y envía solo los primeros.
-- Pide confirmación `(s/n)` antes de enviar nada.
-- Una sola conexión SMTP para todos los emails y 1 segundo de pausa entre envíos.
-- Todo queda registrado en `envios.log` (qué se envió y qué falló, por contacto).
-- Ejemplo de CSV y plantilla con datos falsos en `datos_prueba/*.ejemplo.*`.
+```csv
+nombre,email,turno
+Ana,ana@ejemplo.com,jueves 15:30
+```
+
+La plantilla es texto con `{columna}` donde querés el dato del CSV:
+
+```text
+Hola {nombre}, te recordamos que tu turno es el {turno}.
+```
+
+En `datos_prueba/` hay versiones con datos falsos para copiar:
+`contactos.ejemplo.csv` y `plantilla.ejemplo.txt`.
+
+#### Configuración (solo la primera vez)
+
+1. Activá la **verificación en dos pasos** en tu cuenta de Google
+   (Cuenta de Google → Seguridad).
+2. Creá una **Contraseña de aplicación** de 16 letras: Cuenta de Google →
+   Seguridad → Verificación en dos pasos → Contraseñas de aplicaciones.
+   No es tu contraseña normal de Gmail.
+3. Copiá `.env.example` como `.env` y completá `GMAIL_USER` (tu correo)
+   y `GMAIL_APP_PASS` (la contraseña de aplicación). El `.env` está en
+   `.gitignore`: nunca se sube al repo.
+
+#### Seguridad
+
+| Medida | Qué hace |
+|---|---|
+| Simulación por defecto | Sin `--enviar` no manda nada, solo muestra |
+| Confirmación | Pide `(s/n)` antes de enviar; cualquier otra respuesta cancela |
+| Tope por corrida y diario | `--max` (20 por defecto), descontando lo ya enviado hoy |
+| Pausa | 1 segundo entre emails, una sola conexión SMTP |
+| Registro | Cada envío y cada error queda en `envios.log` |
+| Descartes con aviso | Email inválido o columna faltante: avisa y sigue con el resto |
+
+El registro de lo enviado (con los direcciones tapadas):
+
+![Registro de envíos en envios.log](docs/envios_log.png)
 
 > 💡 Problemas de red: el envío usa SSL directo por el puerto 465
 > (probado en una red que bloqueaba el 587). Si tu red bloquea el 465,
